@@ -126,3 +126,12 @@ func (vs *AtlonaVideoSwitcher5x1) SetAudioVideoInput(ctx context.Context, output
 
 	return nil
 }
+
+func (vs *AtlonaVideoSwitcher5x1) Healthy(ctx context.Context) error {
+	_, err := vs.AudioVideoInputs(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to get inputs (not healthy): %s", err)
+	}
+
+	return nil
+}

@@ -1,3 +1,14 @@
+package atgain60
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strconv"
+
+	"github.com/byuoitav/common/log"
+)
+
 // Volumes gets the current volume
 func (a *Amp60) Volumes(ctx context.Context, blocks []string) (map[string]int, error) {
 	resp, err := a.sendReq(ctx, "deviceaudio_get")

@@ -68,3 +68,12 @@ func (vs *AtlonaVideoSwitcher6x2) Info(ctx context.Context) (interface{}, error)
 	resp.PowerStatus = hardware.System.PowerStatus
 	return resp, nil
 }
+
+func (vs *AtlonaVideoSwitcher6x2) Healthy(ctx context.Context) error {
+	_, err := vs.AudioVideoInputs(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to get inputs (not healthy): %s", err)
+	}
+
+	return nil
+}
