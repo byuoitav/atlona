@@ -2,24 +2,38 @@ package atgain60
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"net/url"
-	"strings"
-	"time"
 
 	"go.uber.org/zap"
 )
 
+type Amp struct {
+	Username string
+	Password string
+	Address  string
+	Log      *zap.Logger
+}
+
+/*
 // Amp60 represents an Atlona 60 watt amplifier
 type Amp60 struct {
 	Username string
 	Password string
 	Address  string
 	Log      *zap.Logger
+}
+*/
+
+/*
+type ampResponse struct {
+	Model         string `json:"101"`
+	Firmware      string `json:"102"`
+	MACAddress    string `json:"103"`
+	SerialNumber  string `json:"104"`
+	OperatingTime string `json:"105"`
 }
 
 // AmpStatus represents the current amp status
@@ -36,15 +50,49 @@ type AmpAudio struct {
 	Volume string `json:"608,omitempty"`
 	Muted  string `json:"609,omitempty"`
 }
+*/
+
+func (a *Amp) r() string {
+	return fmt.Sprintf("%v", rand.Float64())
+}
 
 type loginResult struct {
 	Login bool
 }
 
-func getR() string {
-	return fmt.Sprintf("%v", rand.Float32())
+func (a *Amp) login(ctx context.Context) error {
+	url := fmt.Sprintf("http://%s/action=compare&701=%s&702=%s&r=%s", a.Address, a.Username, a.Password, a.r())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("unable to build request: %w", err)
+	}
+
+	client := &http.Client{
+		Transport: &transport{},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("unable to do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("unable to read body: %w", err)
+	}
+
+	fmt.Printf("body:\n%s\n", body)
+
+	/*
+		if err := json.NewDecoder(resp.Body).Decode(&login); err != nil {
+		}
+	*/
+
+	return nil
 }
 
+/*
 func getURL(address, endpoint string) string {
 	return "http://" + address + "/action=" + endpoint + "&r=" + getR()
 }
@@ -137,3 +185,4 @@ func (a *Amp60) login(ctx context.Context) error {
 	return nil
 
 }
+*/
