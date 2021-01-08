@@ -23,28 +23,10 @@ type Amp struct {
 
 	RequestDelay time.Duration
 
+	loginMu sync.Mutex
 	once    sync.Once
 	limiter *rate.Limiter
 }
-
-/*
-type ampResponse struct {
-	Model         string `json:"101"`
-	Firmware      string `json:"102"`
-	MACAddress    string `json:"103"`
-	SerialNumber  string `json:"104"`
-	OperatingTime string `json:"105"`
-}
-
-// AmpStatus represents the current amp status
-type AmpStatus struct {
-	Model         string `json:"101"`
-	Firmware      string `json:"102"`
-	MACAddress    string `json:"103"`
-	SerialNumber  string `json:"104"`
-	OperatingTime string `json:"105"`
-}
-*/
 
 func (a *Amp) init() {
 	a.limiter = rate.NewLimiter(rate.Every(a.RequestDelay), 1)
@@ -54,7 +36,6 @@ func (a *Amp) r() string {
 	return fmt.Sprintf("%v", rand.Float64())
 }
 
-// login should use singleflight so multiple threads don't login at the same time
 func (a *Amp) login(ctx context.Context) error {
 	url := fmt.Sprintf("http://%s/action=compare&701=%s&702=%s&r=%s", a.Address, a.Username, a.Password, a.r())
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -94,9 +75,12 @@ func (a *Amp) doReq(req *http.Request) ([]byte, error) {
 		return nil, fmt.Errorf("unable to wait for ratelimit: %w", err)
 	}
 
+	// probably not the best solution...
+	a.loginMu.Lock()
+	defer a.loginMu.Unlock()
+
 	login := false
 
-	// maybe mutex so that if someone is logging in, we wait?
 	for {
 		if login {
 			a.Log.Info("Logging in to amp")
@@ -143,97 +127,4 @@ func (a *Amp) doReq(req *http.Request) ([]byte, error) {
 
 		login = true
 	}
-
-	return nil, nil
 }
-
-/*
-func getURL(address, endpoint string) string {
-	return "http://" + address + "/action=" + endpoint + "&r=" + getR()
-}
-
-func (a *Amp60) sendReq(ctx context.Context, endpoint string) ([]byte, error) {
-	// checking to validate that it is logged in
-	err := a.login(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("Login failed to device: %v", err)
-	}
-
-	var toReturn []byte
-	ampUrl := getURL(a.Address, endpoint)
-	Client := http.Client{Timeout: time.Second * 10}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", ampUrl, nil)
-	req.Header.Set("Context-type", "application/json")
-	//req, err := http.NewRequest("GET", ampUrl, nil)
-	a.Log.Debug("Request Output", zap.Any("request", req))
-	if err != nil {
-		return toReturn, fmt.Errorf("unable to make new http request: %w", err)
-	}
-	resp, err := Client.Do(req)
-	a.Log.Debug("RESP Output", zap.Any("response", resp))
-	if err != nil {
-		if nerr, ok := err.(*url.Error); ok {
-			fmt.Printf("%v\n", nerr.Err)
-			if !strings.Contains(nerr.Err.Error(), "malformed") {
-				return toReturn, fmt.Errorf("unable to perform request: %w", err)
-			}
-		} else {
-			return toReturn, fmt.Errorf("unable to perform request: %w", err)
-		}
-		return toReturn, nil
-	}
-	defer resp.Body.Close()
-	toReturn, err = ioutil.ReadAll(resp.Body)
-	s := string(toReturn)
-	a.Log.Info("Response", zap.String("response", s))
-
-	if err != nil {
-		return toReturn, fmt.Errorf("unable to read resp body: %w", err)
-	}
-	return toReturn, nil
-}
-
-// login for device
-func (a *Amp60) login(ctx context.Context) error {
-	// Check if we are currently logged in
-	resp, err := http.Get(a.getLoginUrl())
-	if err != nil {
-		return fmt.Errorf("Unable to log in: %v", err)
-	}
-	defer resp.Body.Close()
-	out, err := ioutil.ReadAll(resp.Body)
-	s := string(out)
-	if err != nil {
-		return fmt.Errorf("Cannot read body of test: %v", err)
-	}
-
-	if strings.Contains(s, "404") == true {
-		var toReturn []byte
-		loginURL := a.getLoginUrl()
-		Client := http.Client{Timeout: time.Second * 10}
-		req, err := http.NewRequestWithContext(ctx, "GET", loginURL, nil)
-		if err != nil {
-			return fmt.Errorf("Unable to create request: %v", err)
-		}
-		resp, err := Client.Do(req)
-		if err != nil {
-			return fmt.Errorf("Unable to connect to device: %v", err)
-		}
-		defer resp.Body.Close()
-		toReturn, err = ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("Cannot read the body of the response")
-		}
-		data := loginResult{}
-		json.Unmarshal(toReturn, &data)
-		if data.Login != true {
-			return fmt.Errorf("Not able to login: %v", err)
-		}
-		return nil
-	}
-
-	return nil
-
-}
-*/

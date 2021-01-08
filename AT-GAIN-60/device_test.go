@@ -10,7 +10,6 @@ import (
 )
 
 func TestLogin(t *testing.T) {
-	t.SkipNow()
 	is := is.New(t)
 
 	amp := &Amp{
