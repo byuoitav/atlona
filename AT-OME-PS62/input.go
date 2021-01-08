@@ -12,7 +12,7 @@ func (vs *AtlonaVideoSwitcher6x2) AudioVideoInputs(ctx context.Context) (map[str
 	toReturn := make(map[string]string)
 
 	for i := 1; i < 3; i++ {
-		var resp atlonaVideo
+		var resp videoConfig
 		url := fmt.Sprintf("http://%s/cgi-bin/config.cgi", vs.Address)
 
 		requestBody := fmt.Sprintf(`
@@ -41,11 +41,11 @@ func (vs *AtlonaVideoSwitcher6x2) AudioVideoInputs(ctx context.Context) (map[str
 		//Get the inputsrc for the requested output
 		input := ""
 		if i == 1 {
-			input = strconv.Itoa(resp.Video.VidOut.HdmiOut.HdmiOutA.VideoSrc)
+			input = strconv.Itoa(resp.VidOut.HdmiOut.HdmiOutA.VideoSrc)
 		} else if i == 2 {
-			input = strconv.Itoa(resp.Video.VidOut.HdmiOut.HdmiOutB.VideoSrc)
+			input = strconv.Itoa(resp.VidOut.HdmiOut.HdmiOutB.VideoSrc)
 		} else {
-			input = strconv.Itoa(resp.Video.VidOut.HdmiOut.Mirror.VideoSrc)
+			input = strconv.Itoa(resp.VidOut.HdmiOut.Mirror.VideoSrc)
 		}
 
 		toReturn[strconv.Itoa(i)] = input

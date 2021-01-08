@@ -12,7 +12,7 @@ func (vs *AtlonaVideoSwitcher6x2) Volumes(ctx context.Context, blocks []string) 
 	toReturn := make(map[string]int)
 
 	for _, block := range blocks {
-		var resp atlonaAudio
+		var resp audioConfig
 		url := fmt.Sprintf("http://%s/cgi-bin/config.cgi", vs.Address)
 		requestBody := fmt.Sprintf(`
 		{
@@ -33,14 +33,14 @@ func (vs *AtlonaVideoSwitcher6x2) Volumes(ctx context.Context, blocks []string) 
 			return toReturn, fmt.Errorf("error when unmarshalling the response: %w", err)
 		}
 		if block == "1" {
-			if resp.Audio.AudOut.ZoneOut1.AudioVol < -40 {
+			if resp.AudOut.ZoneOut1.AudioVol < -40 {
 				toReturn[block] = 0
 			} else {
-				volume := ((resp.Audio.AudOut.ZoneOut1.AudioVol + 40) * 2)
+				volume := ((resp.AudOut.ZoneOut1.AudioVol + 40) * 2)
 				toReturn[block] = volume
 			}
 		} else if block == "2" {
-			toReturn[block] = resp.Audio.AudOut.ZoneOut2.AudioVol + 90
+			toReturn[block] = resp.AudOut.ZoneOut2.AudioVol + 90
 		} else {
 			return toReturn, fmt.Errorf("invalid Output. Valid Output names are 1 and 2 you gave us %s", block)
 		}
@@ -89,7 +89,7 @@ func (vs *AtlonaVideoSwitcher6x2) Mutes(ctx context.Context, blocks []string) (m
 	toReturn := make(map[string]bool)
 
 	for _, block := range blocks {
-		var resp atlonaAudio
+		var resp audioConfig
 		if block == "1" || block == "2" {
 			url := fmt.Sprintf("http://%s/cgi-bin/config.cgi", vs.Address)
 			requestBody := fmt.Sprintf(`
@@ -117,9 +117,9 @@ func (vs *AtlonaVideoSwitcher6x2) Mutes(ctx context.Context, blocks []string) (m
 			return toReturn, fmt.Errorf("Invalid Output. Valid Output names are 1 and 2 you gave us %s", block)
 		}
 		if block == "1" {
-			toReturn[block] = resp.Audio.AudOut.ZoneOut1.AnalogOut.AudioMute
+			toReturn[block] = resp.AudOut.ZoneOut1.AnalogOut.AudioMute
 		} else if block == "2" {
-			toReturn[block] = resp.Audio.AudOut.ZoneOut2.AnalogOut.AudioMute
+			toReturn[block] = resp.AudOut.ZoneOut2.AnalogOut.AudioMute
 		} else {
 			return toReturn, fmt.Errorf("Invalid Output. Valid Output names are 1 and 2 you gave us %s", block)
 		}
