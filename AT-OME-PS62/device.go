@@ -2,55 +2,79 @@ package atomeps62
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
+
+	"golang.org/x/time/rate"
+)
+
+const (
+	_omePs62Endpoint = "/cgi-bin/config.cgi"
 )
 
 type AtlonaVideoSwitcher6x2 struct {
 	Username string
 	Password string
 	Address  string
+
+	// RequestDelay is the time to wait after sending one request to the videoswitcher
+	// before sending another one. Once you have called a function on the struct,
+	// changing it's value will not affect the delay.
+	RequestDelay time.Duration
+
+	once    sync.Once
+	limiter *rate.Limiter
 }
 
-type atlonaVideo struct {
-	Video struct {
-		VidOut struct {
-			HdmiOut struct {
-				HdmiOutA struct {
-					VideoSrc int `json:"videoSrc"`
-				} `json:"hdmiOutA"`
-				HdmiOutB struct {
-					VideoSrc int `json:"videoSrc"`
-				} `json:"hdmiOutB"`
-				Mirror struct {
-					VideoSrc int `json:"videoSrc"`
-				}
-			} `json:"hdmiOut"`
-		} `json:"vidOut"`
-	} `json:"video"`
+type config struct {
+	Video videoConfig `json:"video"`
+	Audio audioConfig `json:"audio"`
 }
 
-type atlonaAudio struct {
-	Audio struct {
-		AudOut struct {
-			ZoneOut1 struct {
-				AnalogOut struct {
-					AudioMute  bool `json:"audioMute"`
-					AudioDelay int  `json:"audioDelay"`
-				} `json:"analogOut"`
-				AudioVol int `json:"audioVol"`
-			} `json:"zoneOut1"`
-			ZoneOut2 struct {
-				AnalogOut struct {
-					AudioMute  bool `json:"audioMute"`
-					AudioDelay int  `json:"audioDelay"`
-				} `json:"analogOut"`
-				AudioVol int `json:"audioVol"`
-			} `json:"zoneOut2"`
-		} `json:"audOut"`
-	} `json:"audio"`
+type videoConfig struct {
+	VidOut struct {
+		HdmiOut struct {
+			Mirror struct {
+				Status   bool `json:"status"`
+				VideoSrc int  `json:"videoSrc"`
+			} `json:"mirror"`
+
+			HdmiOutA struct {
+				VideoSrc int `json:"videoSrc"`
+			} `json:"hdmiOutA"`
+
+			HdmiOutB struct {
+				VideoSrc int `json:"videoSrc"`
+			} `json:"hdmiOutB"`
+		} `json:"hdmiOut"`
+	} `json:"vidOut"`
+}
+
+type audioConfig struct {
+	AudOut struct {
+		ZoneOut1 struct {
+			AudioSource string `json:"audioSource"`
+			AudioVol    int    `json:"audioVol"`
+
+			AnalogOut struct {
+				AudioMute bool `json:"audioMute"`
+			} `json:"analogOut"`
+		} `json:"zoneOut1"`
+
+		ZoneOut2 struct {
+			AudioSource string `json:"audioSource"`
+			AudioVol    int    `json:"audioVol"`
+
+			AnalogOut struct {
+				AudioMute bool `json:"audioMute"`
+			} `json:"analogOut"`
+		} `json:"zoneOut2"`
+	} `json:"audOut"`
 }
 
 type atlonaNetwork struct {
@@ -121,4 +145,81 @@ func (vs *AtlonaVideoSwitcher6x2) make6x2request(ctx context.Context, url, reque
 		return nil, fmt.Errorf("error when making call: %w", gerr)
 	}
 	return body, nil
+}
+
+func (vs *AtlonaVideoSwitcher6x2) init() {
+	vs.limiter = rate.NewLimiter(rate.Every(vs.RequestDelay), 1)
+}
+
+func (vs *AtlonaVideoSwitcher6x2) getConfig(ctx context.Context, body string) (config, error) {
+	vs.once.Do(vs.init)
+
+	var config config
+
+	url := "http://" + vs.Address + _omePs62Endpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
+	if err != nil {
+		return config, fmt.Errorf("unable to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	if len(vs.Username) > 0 {
+		req.SetBasicAuth(vs.Username, vs.Password)
+	}
+
+	if err := vs.limiter.Wait(ctx); err != nil {
+		return config, fmt.Errorf("unable to wait for ratelimit: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return config, fmt.Errorf("unable to do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if err := json.NewDecoder(resp.Body).Decode(&config); err != nil {
+		return config, fmt.Errorf("unable to decode response: %w", err)
+	}
+
+	return config, nil
+}
+
+func (vs *AtlonaVideoSwitcher6x2) setConfig(ctx context.Context, body string) error {
+	vs.once.Do(vs.init)
+
+	url := "http://" + vs.Address + _omePs62Endpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("unable to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	if len(vs.Username) > 0 {
+		req.SetBasicAuth(vs.Username, vs.Password)
+	}
+
+	if err := vs.limiter.Wait(ctx); err != nil {
+		return fmt.Errorf("unable to wait for ratelimit: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("unable to do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var res struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return fmt.Errorf("unable to decode response: %w", err)
+	}
+
+	if !strings.EqualFold(res.Message, "OK") {
+		return fmt.Errorf("bad response (%d): %s", res.Status, res.Message)
+	}
+
+	return nil
 }

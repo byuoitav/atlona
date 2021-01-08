@@ -2,105 +2,41 @@ package atomeps62
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 )
 
 //AudioVideoInputs .
 func (vs *AtlonaVideoSwitcher6x2) AudioVideoInputs(ctx context.Context) (map[string]string, error) {
-	toReturn := make(map[string]string)
+	body := `{ "getConfig": { "video": { "vidOut": { "hdmiOut": {}}}}}`
 
-	for i := 1; i < 3; i++ {
-		var resp atlonaVideo
-		url := fmt.Sprintf("http://%s/cgi-bin/config.cgi", vs.Address)
-
-		requestBody := fmt.Sprintf(`
-		{
-			"getConfig": {
-				"video": {
-					"vidOut": {
-						"hdmiOut": {
-						}
-					}
-				}
-			}
-		}`)
-
-		body, gerr := vs.make6x2request(ctx, url, requestBody)
-		if gerr != nil {
-			return toReturn, fmt.Errorf("An error occured while making the call: %w", gerr)
-		}
-
-		err := json.Unmarshal([]byte(body), &resp)
-		if err != nil {
-			fmt.Printf("%s/n", body)
-			return toReturn, fmt.Errorf("error when unmarshalling the response: %w", err)
-		}
-
-		//Get the inputsrc for the requested output
-		input := ""
-		if i == 1 {
-			input = strconv.Itoa(resp.Video.VidOut.HdmiOut.HdmiOutA.VideoSrc)
-		} else if i == 2 {
-			input = strconv.Itoa(resp.Video.VidOut.HdmiOut.HdmiOutB.VideoSrc)
-		} else {
-			input = strconv.Itoa(resp.Video.VidOut.HdmiOut.Mirror.VideoSrc)
-		}
-
-		toReturn[strconv.Itoa(i)] = input
+	config, err := vs.getConfig(ctx, body)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get config: %w", err)
 	}
 
-	return toReturn, nil
+	inputs := make(map[string]string)
+	if config.Video.VidOut.HdmiOut.Mirror.Status {
+		inputs["mirror"] = strconv.Itoa(config.Video.VidOut.HdmiOut.Mirror.VideoSrc)
+	} else {
+		inputs["hdmiOutA"] = strconv.Itoa(config.Video.VidOut.HdmiOut.HdmiOutA.VideoSrc)
+		inputs["hdmiOutB"] = strconv.Itoa(config.Video.VidOut.HdmiOut.HdmiOutB.VideoSrc)
+	}
+
+	return inputs, nil
 }
 
 //SetAudioVideoInput .
 func (vs *AtlonaVideoSwitcher6x2) SetAudioVideoInput(ctx context.Context, output, input string) error {
 	in, err := strconv.Atoi(input)
 	if err != nil {
-		return fmt.Errorf("error when making call: %w", err)
-	}
-	url := fmt.Sprintf("http://%s/cgi-bin/config.cgi", vs.Address)
-	requestBody := ""
-	if output == "1" {
-		requestBody = fmt.Sprintf(`
-		{
-			"setConfig":{
-				"video":{
-					"vidOut":{
-						"hdmiOut":{
-							"hdmiOutA":{
-								"videoSrc":%v
-							}
-						}
-					}
-				}
-			}
-		}`, in)
-	} else if output == "2" {
-		requestBody = fmt.Sprintf(`
-		{
-			"setConfig":{
-				"video":{
-					"vidOut":{
-						"hdmiOut":{
-							"hdmiOutB":{
-								"videoSrc":%v
-							}
-						}
-					}
-				}
-			}
-		}`, in)
-	} else {
-		requestBody = fmt.Sprintf(`
-		{"setConfig":{"video":{"vidOut":{"hdmiOut":{"mirror":{"videoSrc":%v}}}}}}
-		`, in)
+		return fmt.Errorf("input must be an int: %w", err)
 	}
 
-	_, gerr := vs.make6x2request(ctx, url, requestBody)
-	if gerr != nil {
-		return fmt.Errorf("An error occured while making the call: %w", gerr)
+	body := fmt.Sprintf(`{ "setConfig": { "video": { "vidOut": { "hdmiOut": { "%s": { "videoSrc": %v }}}}}}`, output, in)
+	if err := vs.setConfig(ctx, body); err != nil {
+		return fmt.Errorf("unable to set config: %w", err)
 	}
+
 	return nil
 }
