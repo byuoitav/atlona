@@ -183,3 +183,43 @@ func (vs *AtlonaVideoSwitcher6x2) getConfig(ctx context.Context, body string) (c
 
 	return config, nil
 }
+
+func (vs *AtlonaVideoSwitcher6x2) setConfig(ctx context.Context, body string) error {
+	vs.once.Do(vs.init)
+
+	url := "http://" + vs.Address + _omePs62Endpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("unable to create request: %w", err)
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	if len(vs.Username) > 0 {
+		req.SetBasicAuth(vs.Username, vs.Password)
+	}
+
+	if err := vs.limiter.Wait(ctx); err != nil {
+		return fmt.Errorf("unable to wait for ratelimit: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("unable to do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var res struct {
+		Status  int    `json:"status"`
+		Message string `json:"message"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return fmt.Errorf("unable to decode response: %w", err)
+	}
+
+	if !strings.EqualFold(res.Message, "OK") {
+		return fmt.Errorf("bad response (%d): %s", res.Status, res.Message)
+	}
+
+	return nil
+}
