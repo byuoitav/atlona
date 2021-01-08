@@ -1,10 +1,6 @@
 package atgain60
 
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-)
+/*
 
 // Info gets the current amp status
 func (a *Amp60) Info(ctx context.Context) (interface{}, error) {
@@ -28,3 +24,4 @@ func (a *Amp60) Healthy(ctx context.Context) error {
 
 	return nil
 }
+*/

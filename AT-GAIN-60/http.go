@@ -13,17 +13,13 @@ import (
 
 var _ http.RoundTripper = &transport{}
 
-// for http 0.9: https://www.w3.org/Protocols/HTTP/AsImplemented.html
-
-// transport is an http.RoundTripper that is meant for use with this atlona amp. DO NOT USE FOR GENERAL HTTP REQUESTS. It handles the random HTTP/0.9 and HTTP/1.0 responses that the amp responds with. HTTP/1.0 requests are parsed very simply, likely incorrectly for a lot of HTTP requests, and does not set all fields on the http.Response.
+// transport is an http.RoundTripper that is meant for use with this atlona amp. DO NOT USE FOR GENERAL HTTP REQUESTS. It handles the random HTTP/0.9 and HTTP/1.0 responses that the amp responds with. HTTP/1.0 requests are parsed very simply, likely incorrectly for a lot of HTTP requests, and does not set all fields on the http.Response. HTTP/0.9 'spec' was found here https://www.w3.org/Protocols/HTTP/AsImplemented.html.
 type transport struct {
 	dialer net.Dialer
 }
 
 // RoundTrip implements the http.RoundTripper interface
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	fmt.Printf("%s request to %s (path: %s)\n", req.Method, req.URL.String(), req.URL.Path)
-
 	port := req.URL.Port()
 	if port == "" {
 		port = "80"
@@ -42,6 +38,8 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	// write the http request line
+	// we're gonna send HTTP/0.9, even though we don't need to, just in case
+	// it encourages the amp to send HTTP/0.9 responses.
 	line := []byte(fmt.Sprintf("%s %s HTTP/0.9\r\n", req.Method, req.URL.Path))
 
 	n, err := conn.Write(line)
@@ -83,6 +81,10 @@ func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	split := strings.SplitN(string(first), " ", 3)
+	if len(split) != 3 {
+		return nil, fmt.Errorf("unable to parse response line: %q", string(first))
+	}
+
 	resp.Proto = split[0]
 	resp.Status = split[1] + " " + split[2]
 	resp.StatusCode, _ = strconv.Atoi(split[1])

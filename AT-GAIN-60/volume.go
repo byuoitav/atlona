@@ -4,11 +4,41 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
-
-	"github.com/byuoitav/common/log"
 )
 
+type audio struct {
+	Volume string `json:"608"`
+	Muted  string `json:"609"`
+}
+
+func (a *Amp) Volumes(ctx context.Context, blocks []string) (map[string]int, error) {
+	url := fmt.Sprintf("http://%s/action=deviceaudio_get&r=%s", a.Address, a.r())
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unable to build request: %w", err)
+	}
+
+	body, err := a.doReq(req)
+	if err != nil {
+		return nil, fmt.Errorf("unable to do request: %w", err)
+	}
+
+	var audio audio
+	if err := json.Unmarshal(body, &audio); err != nil {
+		return nil, fmt.Errorf("unable to decode response: %w", err)
+	}
+
+	vol, err := strconv.Atoi(audio.Volume)
+	if err != nil {
+		return nil, fmt.Errorf("unable to convert volume: %w", err)
+	}
+
+	return map[string]int{"": vol}, nil
+}
+
+/*
 // Volumes gets the current volume
 func (a *Amp60) Volumes(ctx context.Context, blocks []string) (map[string]int, error) {
 	resp, err := a.sendReq(ctx, "deviceaudio_get")
@@ -74,3 +104,4 @@ func (a *Amp60) SetMute(ctx context.Context, block string, muted bool) error {
 	}
 	return nil
 }
+*/
