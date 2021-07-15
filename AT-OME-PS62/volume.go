@@ -2,7 +2,6 @@ package atomeps62
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 )
@@ -28,10 +27,10 @@ func (vs *AtlonaVideoSwitcher6x2) Volumes(ctx context.Context, blocks []string) 
 	}
 
 	// Get the analog audio out on zoneOut1 volume
-	if config.Audio.AudOut.ZoneOut1.analogOut.audioVol < -50 {
+	if config.Audio.AudOut.ZoneOut1.AnalogOut.AudioVol < -50 {
 		vols["zoneOut1-Analog"] = 0
 	} else {
-		vols["zoneOut1-Analog"] = 2 * (config.Audio.AudOut.ZoneOut1.analogOut.audioVol + 50)
+		vols["zoneOut1-Analog"] = 2 * (config.Audio.AudOut.ZoneOut1.AnalogOut.AudioVol + 50)
 	}
 
 	// Get the digital audio out on zoneOut2 volume
@@ -42,10 +41,10 @@ func (vs *AtlonaVideoSwitcher6x2) Volumes(ctx context.Context, blocks []string) 
 	}
 
 	// Get the analog audio out on zoneOut2 volume
-	if config.Audio.AudOut.ZoneOut2.analogOut.audioVol < -50 {
+	if config.Audio.AudOut.ZoneOut2.AnalogOut.AudioVol < -50 {
 		vols["zoneOut1-Analog"] = 0
 	} else {
-		vols["zoneOut1-Analog"] = 2 * (config.Audio.AudOut.ZoneOut2.analogOut.audioVol + 50)
+		vols["zoneOut1-Analog"] = 2 * (config.Audio.AudOut.ZoneOut2.AnalogOut.AudioVol + 50)
 	}
 
 	return vols, nil
@@ -53,6 +52,7 @@ func (vs *AtlonaVideoSwitcher6x2) Volumes(ctx context.Context, blocks []string) 
 
 //SetVolume .
 func (vs *AtlonaVideoSwitcher6x2) SetVolume(ctx context.Context, block string, level int) error {
+	zblock := ""
 	if block == "zoneOut1" || block == "zoneOut2" {
 
 		// Atlona volume levels are from -90 to 10 and the number we receive is 0-100
@@ -73,9 +73,9 @@ func (vs *AtlonaVideoSwitcher6x2) SetVolume(ctx context.Context, block string, l
 		return nil
 	} else if block == "zoneOut1Analog" || block == "zoneOut2Analog" {
 		if block == "zoneOut1Analog" {
-			zblock := "zoneOut1"
+			zblock = "zoneOut1"
 		} else {
-			zblock := "zoneOut2"
+			zblock = "zoneOut2"
 		}
 		// Atlona volume levels are from -90 to 10 and the number we receive is 0-100
 		// If volume level is supposed to be zero set it -90 on atlona
@@ -87,7 +87,7 @@ func (vs *AtlonaVideoSwitcher6x2) SetVolume(ctx context.Context, block string, l
 		}
 
 		// Set digital and analog audio together for the audio block
-		body := fmt.Sprintf(`{ "setConfig": { "audio": { "audOut": { "%s": { "analogOut":{"audioVol": %d }}}}}}`, zblock, level, level)
+		body := fmt.Sprintf(`{ "setConfig": { "audio": { "audOut": { "%s": { "analogOut":{"audioVol": %d }}}}}}`, zblock, level)
 		if err := vs.setConfig(ctx, body); err != nil {
 			return fmt.Errorf("unable to set config: %w", err)
 		}
@@ -95,9 +95,9 @@ func (vs *AtlonaVideoSwitcher6x2) SetVolume(ctx context.Context, block string, l
 		return nil
 	} else if block == "zoneOut1Digital" || block == "zoneOut2Digital" {
 		if block == "zoneOut1Digital" {
-			zblock := "zoneOut1"
+			zblock = "zoneOut1"
 		} else {
-			zblock := "zoneOut2"
+			zblock = "zoneOut2"
 		}
 		// Atlona volume levels are from -90 to 10 and the number we receive is 0-100
 		// If volume level is supposed to be zero set it -90 on atlona
@@ -109,7 +109,7 @@ func (vs *AtlonaVideoSwitcher6x2) SetVolume(ctx context.Context, block string, l
 		}
 
 		// Set digital and analog audio together for the audio block
-		body := fmt.Sprintf(`{ "setConfig": { "audio": { "audOut": { "%s": { "audioVol": %d }}}}}`, zblock, level, level)
+		body := fmt.Sprintf(`{ "setConfig": { "audio": { "audOut": { "%s": { "audioVol": %d }}}}}`, zblock, level)
 		if err := vs.setConfig(ctx, body); err != nil {
 			return fmt.Errorf("unable to set config: %w", err)
 		}
@@ -142,6 +142,7 @@ func (vs *AtlonaVideoSwitcher6x2) Mutes(ctx context.Context, blocks []string) (m
 
 //SetMute for all of the audio objects within the block
 func (vs *AtlonaVideoSwitcher6x2) SetMute(ctx context.Context, block string, muted bool) error {
+	zblock := ""
 	if block == "zoneOut1" || block == "zoneOut2" {
 		body := fmt.Sprintf(`{ "setConfig": { "audio": { "audOut": { "%s": { "videoOut": { "audioMute": %t }, "analogOut": { "audioMute": %t }}}}}}`, block, muted, muted)
 		if err := vs.setConfig(ctx, body); err != nil {
@@ -151,10 +152,11 @@ func (vs *AtlonaVideoSwitcher6x2) SetMute(ctx context.Context, block string, mut
 		return nil
 	} else if block == "zoneOut1Analog" || block == "zoneOut2Analog" {
 		if block == "zoneOut1Analog" {
-			zblock := "zoneOut1"
+			zblock = "zoneOut1"
 		} else {
-			zblock := "zoneOut2"
+			zblock = "zoneOut2"
 		}
+
 		body := fmt.Sprintf(`{ "setConfig": { "audio": { "audOut": { "%s": { "analogOut": { "audioMute": %t }}}}}}`, zblock, muted)
 		if err := vs.setConfig(ctx, body); err != nil {
 			return fmt.Errorf("unable to set config: %w", err)
@@ -164,11 +166,12 @@ func (vs *AtlonaVideoSwitcher6x2) SetMute(ctx context.Context, block string, mut
 
 	} else if block == "zoneOut1Digital" || block == "zoneOut2Digital" {
 		if block == "zoneOut1Digital" {
-			zblock := "zoneOut1"
+			zblock = "zoneOut1"
 		} else {
-			zblock := "zoneOut2"
+			zblock = "zoneOut2"
 		}
-		body := fmt.Sprintf(`{ "setConfig": { "audio": { "audOut": { "%s": { "videoOut": { "audioMute": %t }, "analogOut": { "audioMute": %t }}}}}}`, zblock, muted)
+
+		body := fmt.Sprintf(`{ "setConfig": { "audio": { "audOut": { "%s": { "videoOut": { "audioMute": %t }}}}}}`, zblock, muted)
 		if err := vs.setConfig(ctx, body); err != nil {
 			return fmt.Errorf("unable to set config: %w", err)
 		}
