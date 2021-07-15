@@ -86,7 +86,7 @@ func (vs *AtlonaVideoSwitcher6x2) SetVolume(ctx context.Context, block string, l
 			level = int(convertedVolume)
 		}
 
-		// Set digital and analog audio together for the audio block
+		// Set analog audio for the audio block
 		body := fmt.Sprintf(`{ "setConfig": { "audio": { "audOut": { "%s": { "analogOut":{"audioVol": %d }}}}}}`, zblock, level)
 		if err := vs.setConfig(ctx, body); err != nil {
 			return fmt.Errorf("unable to set config: %w", err)
@@ -108,7 +108,7 @@ func (vs *AtlonaVideoSwitcher6x2) SetVolume(ctx context.Context, block string, l
 			level = int(convertedVolume)
 		}
 
-		// Set digital and analog audio together for the audio block
+		// Set digital audio for the audio block
 		body := fmt.Sprintf(`{ "setConfig": { "audio": { "audOut": { "%s": { "audioVol": %d }}}}}`, zblock, level)
 		if err := vs.setConfig(ctx, body); err != nil {
 			return fmt.Errorf("unable to set config: %w", err)
@@ -143,6 +143,7 @@ func (vs *AtlonaVideoSwitcher6x2) Mutes(ctx context.Context, blocks []string) (m
 //SetMute for all of the audio objects within the block
 func (vs *AtlonaVideoSwitcher6x2) SetMute(ctx context.Context, block string, muted bool) error {
 	zblock := ""
+	// Set Mutes for both analog and digital when configured with a combined block
 	if block == "zoneOut1" || block == "zoneOut2" {
 		body := fmt.Sprintf(`{ "setConfig": { "audio": { "audOut": { "%s": { "videoOut": { "audioMute": %t }, "analogOut": { "audioMute": %t }}}}}}`, block, muted, muted)
 		if err := vs.setConfig(ctx, body); err != nil {
@@ -150,6 +151,7 @@ func (vs *AtlonaVideoSwitcher6x2) SetMute(ctx context.Context, block string, mut
 		}
 
 		return nil
+		// Set mute for analog audio out for a given block
 	} else if block == "zoneOut1Analog" || block == "zoneOut2Analog" {
 		if block == "zoneOut1Analog" {
 			zblock = "zoneOut1"
@@ -163,7 +165,7 @@ func (vs *AtlonaVideoSwitcher6x2) SetMute(ctx context.Context, block string, mut
 		}
 
 		return nil
-
+		// Set mute for digital audio out for a given block
 	} else if block == "zoneOut1Digital" || block == "zoneOut2Digital" {
 		if block == "zoneOut1Digital" {
 			zblock = "zoneOut1"

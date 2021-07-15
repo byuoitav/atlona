@@ -69,6 +69,7 @@ func (vs *AtlonaVideoSwitcher6x2) Info(ctx context.Context) (interface{}, error)
 	return resp, nil
 }
 
+// Health Check End Point
 func (vs *AtlonaVideoSwitcher6x2) Healthy(ctx context.Context) error {
 	_, err := vs.AudioVideoInputs(ctx)
 	if err != nil {
