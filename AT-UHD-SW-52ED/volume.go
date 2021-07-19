@@ -17,7 +17,7 @@ import (
 var (
 	ErrorVolumeOR = errors.New("Volume is out of range")
 	ErrorMute     = errors.New("Mute State is invalid")
-	regGetVolume  = regexp.MustCompile("VOUT1 (...)")
+	regGetVolume  = regexp.MustCompile("VOUT1 (-?\\d+)")
 	regGetMute    = regexp.MustCompile("VOUTMute1 (...)")
 )
 
@@ -60,9 +60,6 @@ func (vs *AtlonaVideoSwitcher5x1) Volumes(ctx context.Context, blocks []string) 
 
 		}
 		volumeStr = strings.TrimPrefix(match[0][1], "0")
-		if volumeStr[len(volumeStr)-1:] == string('\r') {
-			volumeStr = strings.TrimSuffix(volumeStr, string('\r'))
-		}
 		return nil
 	})
 	if err != nil {
