@@ -60,18 +60,24 @@ type audioConfig struct {
 		ZoneOut1 struct {
 			AudioSource string `json:"audioSource"`
 			AudioVol    int    `json:"audioVol"`
-
+			VideoOut    struct {
+				AudioMute bool `json:"audioMute"`
+			} `json:"videoOut"`
 			AnalogOut struct {
 				AudioMute bool `json:"audioMute"`
+				AudioVol  int  `json:"audioVol"`
 			} `json:"analogOut"`
 		} `json:"zoneOut1"`
 
 		ZoneOut2 struct {
 			AudioSource string `json:"audioSource"`
 			AudioVol    int    `json:"audioVol"`
-
+			VideoOut    struct {
+				AudioMute bool `json:"audioMute"`
+			} `json: "videoOut"`
 			AnalogOut struct {
 				AudioMute bool `json:"audioMute"`
+				AudioVol  int  `json:"audioVol"`
 			} `json:"analogOut"`
 		} `json:"zoneOut2"`
 	} `json:"audOut"`
