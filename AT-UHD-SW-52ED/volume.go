@@ -59,7 +59,11 @@ func (vs *AtlonaVideoSwitcher5x1) Volumes(ctx context.Context, blocks []string) 
 			match = regGetVolume.FindAllStringSubmatch(string(buf), -1)
 
 		}
+<<<<<<< HEAD
 		volumeStr = strings.TrimPrefix(match[0][1], " ")
+=======
+		volumeStr = strings.TrimPrefix(match[0][1], "0")
+>>>>>>> 60ba180 (Fixed the Regex (#4))
 		return nil
 	})
 	if err != nil {
