@@ -22,7 +22,7 @@ var (
 )
 
 //Volumes .
-func (vs *AtlonaVideoSwitcher5x1) Volumes(ctx context.Context) (map[string]int, error) {
+func (vs *AtlonaVideoSwitcher5x1) Volumes(ctx context.Context, blocks []string) (map[string]int, error) {
 
 	vs.log.Info("Getting Volume")
 	volumeOut := make(map[string]int)
@@ -88,7 +88,7 @@ func (vs *AtlonaVideoSwitcher5x1) Volumes(ctx context.Context) (map[string]int, 
 }
 
 //SetVolume .
-func (vs *AtlonaVideoSwitcher5x1) SetVolume(ctx context.Context, level int) error {
+func (vs *AtlonaVideoSwitcher5x1) SetVolume(ctx context.Context, block string, level int) error {
 
 	if level == 0 {
 		level = -80
