@@ -2,84 +2,78 @@ package atuhdsw52ed
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/byuoitav/connpool"
+	"go.uber.org/zap"
+)
+
+var (
+	ErrorOutOfRange = errors.New("input or output is out of range")
+	regGetInput     = regexp.MustCompile("x(.)AVx1")
 )
 
 //AudioVideoInputs .
 func (vs *AtlonaVideoSwitcher5x1) AudioVideoInputs(ctx context.Context) (map[string]string, error) {
-	toReturn := make(map[string]string)
-	vs.once.Do(vs.createPool)
+	vs.log.Info("Getting the current inputs")
+	inputs := make(map[string]string)
 
-	var roomInfo room
-	var bytes []byte
+	err := vs.pool.Do(ctx, func(conn connpool.Conn) error {
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			deadline = time.Now().Add(10 * time.Second)
+		}
 
-	err := vs.pool.Do(ctx, func(ws *websocket.Conn) error {
-		body := `{
-			"jsonrpc": "2.0",
-			"id": "<configuration_id>",
-			"method": "config_get",
-			"params": {
-				"sections": [
-					"AV Settings"
-				]
+		if err := conn.SetReadDeadline(deadline); err != nil {
+			return fmt.Errorf("unable to set connection deadline: %w", err)
+		}
+
+		cmd := []byte("Status\r\n")
+
+		n, err := conn.Write(cmd)
+
+		switch {
+		case err != nil:
+			return fmt.Errorf("unable to write to connection: %w", err)
+		case n != len(cmd):
+			return fmt.Errorf("unable to write to connection: wrote %v/%v bytes", n, len(cmd))
+		}
+
+		var match [][]string
+
+		for len(match) == 0 {
+			buf, err := conn.ReadUntil(asciiCarriageReturn, deadline)
+
+			if err != nil {
+				return fmt.Errorf("unable to read from connection: %w", err)
 			}
-		}`
-
-		vs.pool.Logger.Infof("writing message to Get Input")
-
-		err := ws.WriteMessage(websocket.TextMessage, []byte(body))
-		if err != nil {
-			return fmt.Errorf("failed to write message: %s", err.Error())
+			match = regGetInput.FindAllStringSubmatch(string(buf), -1)
 		}
 
-		if vs.Logger != nil {
-			vs.Logger.Infof("reading message from websocket")
-		}
-
-		timeout := time.Now()
-		timeout = timeout.Add(time.Second * 5)
-
-		err = ws.SetReadDeadline(timeout)
-		if err != nil {
-			return fmt.Errorf("failed to set readDeadline: %s", err)
-		}
-
-		_, bytes, err = ws.ReadMessage()
-		if err != nil {
-			vs.Logger.Errorf("failed reading message from websocket: %s", err)
-			return fmt.Errorf("failed to read message: %s", err)
-		}
-
-		vs.pool.Logger.Infof("read message from Get Input")
-
+		inputs[""] = strings.TrimPrefix(match[0][1], "0")
 		return nil
+
 	})
-
 	if err != nil {
-		return toReturn, fmt.Errorf("failed to read message from channel: %s", err.Error())
+		return inputs, err
 	}
+	vs.log.Info("Got inputs", zap.Any("inputs", inputs))
+	return inputs, nil
 
-	err = json.Unmarshal(bytes, &roomInfo)
-
-	if err != nil {
-		return toReturn, fmt.Errorf("failed to unmarshal message: %s", err.Error())
-	}
-
-	toReturn[""] = roomInfo.Result.AVSettings.Source[6:]
-	return toReturn, nil
 }
 
-//SetAudioVideoInput .
+//SetAudioVideoInput
 func (vs *AtlonaVideoSwitcher5x1) SetAudioVideoInput(ctx context.Context, output, input string) error {
-	vs.once.Do(vs.createPool)
+	output = "1"
+	vs.log.Info("Setting audio video input", zap.String("output", output), zap.String("input", input))
+	cmd := []byte(fmt.Sprintf("x%sAVx%s\r\n", input, output))
 
 	intInput, nerr := strconv.Atoi(input)
-
 	if nerr != nil {
 		return fmt.Errorf("error occured when converting input to int: %w", nerr)
 	}
@@ -88,50 +82,34 @@ func (vs *AtlonaVideoSwitcher5x1) SetAudioVideoInput(ctx context.Context, output
 		return fmt.Errorf("Invalid Input. The input requested must be between 1-5. The input you requested was %v", intInput)
 	}
 
-	err := vs.pool.Do(ctx, func(ws *websocket.Conn) error {
-		body := fmt.Sprintf(`{
-			"jsonrpc": "2.0",
-			"id": "<configuration_id>",
-			"method": "config_set",
-			"params": {
-			  "AV Settings": {
-				"source": "input %s"
-			  }
-			}
-		  }`, input)
-
-		if vs.Logger != nil {
-			vs.Logger.Infof("writing message")
+	return vs.pool.Do(ctx, func(conn connpool.Conn) error {
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			deadline = time.Now().Add(10 * time.Second)
 		}
 
-		vs.pool.Logger.Infof("writing message to Set Input")
+		if err := conn.SetDeadline(deadline); err != nil {
+			return fmt.Errorf("unable to set connection deadline: %w", err)
+		}
+		n, err := conn.Write(cmd)
 
-		err := ws.WriteMessage(websocket.TextMessage, []byte(body))
+		switch {
+		case err != nil:
+			return fmt.Errorf("unable to write to connection %w", err)
+		case n != len(cmd):
+			return fmt.Errorf("unable to write to connection: wrote %v%v bytes", n, len(cmd))
+		}
+
+		buf, err := conn.ReadUntil(asciiCarriageReturn, deadline)
 		if err != nil {
-			return fmt.Errorf("failed to write message: %s", err.Error())
+			return fmt.Errorf("failed to read from connection: %w", err)
+		}
+		if strings.Contains(string(buf), "failed") {
+			return ErrorOutOfRange
 		}
 
-		vs.pool.Logger.Infof("successful wrote message to set Input")
-
+		vs.log.Info("Successfully set audio video input", zap.String("output", output), zap.String("input", input))
 		return nil
 	})
 
-	if err != nil {
-		return fmt.Errorf("failed to read message from channel: %s", err.Error())
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to read message from channel: %s", err.Error())
-	}
-
-	return nil
-}
-
-func (vs *AtlonaVideoSwitcher5x1) Healthy(ctx context.Context) error {
-	_, err := vs.AudioVideoInputs(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to get inputs (not healthy): %s", err)
-	}
-
-	return nil
 }
