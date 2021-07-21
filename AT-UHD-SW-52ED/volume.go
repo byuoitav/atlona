@@ -65,7 +65,7 @@ func (vs *AtlonaVideoSwitcher5x1) Volumes(ctx context.Context, blocks []string) 
 	if err != nil {
 		return volumeOut, err
 	}
-	fmt.Println(volumeStr)
+
 	volumeLevel, err := strconv.Atoi(volumeStr)
 	if err != nil {
 		return volumeOut, fmt.Errorf("failed to convert volume to int: %s", err.Error())
