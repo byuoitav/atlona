@@ -59,6 +59,7 @@ func (vs *AtlonaVideoSwitcher5x1) Volumes(ctx context.Context, blocks []string) 
 			match = regGetVolume.FindAllStringSubmatch(string(buf), -1)
 
 		}
+
 		volumeStr = strings.TrimPrefix(match[0][1], " ")
 		return nil
 	})
