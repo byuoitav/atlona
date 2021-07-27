@@ -59,7 +59,8 @@ func (vs *AtlonaVideoSwitcher5x1) Volumes(ctx context.Context, blocks []string) 
 			match = regGetVolume.FindAllStringSubmatch(string(buf), -1)
 
 		}
-		volumeStr = strings.TrimPrefix(match[0][1], "0")
+
+		volumeStr = strings.TrimPrefix(match[0][1], " ")
 		return nil
 	})
 	if err != nil {
@@ -169,7 +170,7 @@ func (vs *AtlonaVideoSwitcher5x1) Mutes(ctx context.Context, blocks []string) (m
 
 			match = regGetMute.FindAllStringSubmatch(string(buf), -1)
 		}
-		muteState = strings.TrimPrefix(match[0][1], "0")
+		muteState = strings.TrimPrefix(match[0][1], " ")
 		if muteState[len(muteState)-1:] == string('\r') {
 			muteState = strings.TrimSuffix(muteState, string('\r'))
 		}
